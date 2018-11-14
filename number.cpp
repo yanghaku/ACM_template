@@ -104,7 +104,7 @@ bool miller_rabin(long long n,int S=50){
 		x=q_pow(a,u,n);
 		for(int j=0;j<t;++j){
 			y=q_mul(x,x,n);
-			if(y==1 && x!=1 && x!=n-1) return false;
+			if(y==1 && x!=1 && x!=n-1)return false;
 			x=y;
 		}
 		if(x!=1)return false;
@@ -211,48 +211,43 @@ int getFactor(long long x){
 
 /** 3.2 pollard_rho算法进行质因素分解
  *  结果保存在fac[]里 (返回的是无序的!)
- *  需要gcd(),q_mul,miller_rabin;
+ *  需要q_mul,miller_rabin;
  *  调用之前findfac()之前要将tot变为0;
  */
-long long fac[400];
+long long fac[200];
 int tot;
 // 找出一个因子
 long long pollard_rho(long long x,long long c){
 	long long i=1,k=2;
-	srand(time(NULL));
 	long long x0=rand()%(x-1)+1;
 	long long y=x0;
 	while(1){
 		++i;
 		x0=(q_mul(x0,x0,x)+c)%x;
-		long long d=gcd(y-x0,x);
+		long long d=abs(__gcd(y-x0,x));
 		if(d!=1 && d!=x)return d;
 		if(y==x0)return x;
 		if(i==k){ y=x0; k += k; }
 	}
 }
 //对n进行素因子分解, 存入fac
-void findfac(long long n,int k=107){
+void findfac(long long n){
 	if(n==1)return;
 	if(miller_rabin(n)){
 		fac[tot++]=n;
 		return;
 	}
 	long long p=n;
-	int c=k;
-	while(p>=n)p=pollard_rho(p,c--);
-	findfac(p,k);
-	findfac(n/p,k);
+	while(p>=n)p=pollard_rho(p,rand()%(n-1)+1);
+	findfac(p);	findfac(n/p);
 }
 
 
+/**
+ *	4.gcd, 扩展gcd, 快速乘, 快速幂
+ */
 
-
-
-
-
-
-// 辗转相除法(可以用algorithm里的__gcd() )
+// 4.1 辗转相除法(可以用algorithm里的__gcd() )
 int gcd(int a,int b){
 	return b==0? a : gcd(b,a%b);
 }
@@ -260,7 +255,7 @@ int lcm(int a,int b){
 	return a/gcd(a,b)*b;
 }
 
-/** 扩展gcd,  x*a + y*b = d = gcd(a,b)
+/** 4.2 扩展gcd,  x*a + y*b = d = gcd(a,b)
  *  数据很有可能会溢出, 最好用long long
  */
 void gcd(int a,int b,int& d,int& x,int& y){
@@ -268,10 +263,24 @@ void gcd(int a,int b,int& d,int& x,int& y){
 	else { d=a; x=1; y=0; }
 }
 
+// 4.3 快速gcd (在位数比较大时的更相减损法)
+int qgcd(int a,int b){
+	if(a==0)return b;
+	if(b==0)return a;
+	if(!(a&1) && !(b&1))
+		return qgcd(a>>1,b>>1)<<1;
+	else if(!(b&1))
+		return qgcd(a,b>>1);
+	else if(!(b&1))
+		return qgcd(a>>1,b);
+	else
+		return qgcd(abs(a-b),min(a,b));
+}
 
-typedef long long ll;
-ll q_pow(ll a,ll b,ll p){
-	ll ans=1;
+// 4.4 快速幂 O(logb)
+// !!!!! 当p为long long的时候, 要把里面的乘法改为快速乘
+long long q_pow(long long a,long long b,long long p){
+	long long ans=1;
 	while(b){
 		if(b&1)ans=ans*a%p;
 		a=a*a%p;
@@ -280,8 +289,8 @@ ll q_pow(ll a,ll b,ll p){
 	return ans;
 }
 
-
-ll q_mul(ll a,ll b,ll p){
+// 4.5 log快速乘取模, O(logb)
+long long q_mul(long long a,long long b,long long p){
 	a%=p;
 	b%=p;
 	ll ans=0;
@@ -297,22 +306,20 @@ ll q_mul(ll a,ll b,ll p){
 	return ans;
 }
 
-/**
-	O(1) 快速乘
-	(常数很大, 而且特别大数会溢出)
-*/
-inline ll mul_O1(ll x,ll y){
+/** 4.6 O(1) 快速乘
+ *  (常数很大, 而且特别大数会溢出)
+ */
+inline long long mul_O1(long long x,long long y,long long p){
 	long long tmp=(x*y-(long long)((long double)x/p*y+1.0e-8)*p);
 	return tmp<0? tmp+p : tmp;
 }
 
 
-/**
+/** 4.7 O1 快速乘 (常数极小)
 	只适用于 X86_64 位的评测机
 	需要关闭编译器优化
 	并且只能运算 (unsigned long long)
 */
-
 #pragma GCC optimize("O0")
 typedef unsigned long long ull;
 inline ull q_mul(ull a,ull b,ull p){
@@ -333,26 +340,29 @@ inline ull q_mul(ull a,ull b,ull p){
     return ans;
 }
 
-
-/** 逆元四种求法
-  1. 扩展欧几里德
-  2. 欧拉定理(或费马小定理)
-  3. 线性递推打表
-  4. 递归求法
+/**
+ *  5.逆元
  */
 
+// 5.1 扩展欧几里德
 long long inv(long long a,long long mod){
 	long long x,y,d;
 	gcd(a,mod,d,x,y);
 	return d==1? (x%n+n)%n : -1;
 }
+
+// 5.2 欧拉定理
 long long inv(long long a,long long p){// p需要是素数
 	return q_pow(a,p-2,p);
 }
+
+// 5.3 递归
 long long inv(long long a,long long m){
 	if(a==1)return 1;
 	return inv(m%a,m)*(m-m/a)%m;
 }
+
+// 5.4 线性递推
 void inverse(){
 	memset(inv,0,sizeof(inv));
 	inv[1]=1;
@@ -360,4 +370,151 @@ void inverse(){
 		inv[i]=inv[mod%i]*(mod-mod/i)%mod;
 	}
 }
+
+//5.5 阶乘的逆元
+const int maxn=1e5+10;
+long long fac[maxn],inv[maxn];
+void init(long long p){
+	fac[0]=1;
+	for(int i=1;i<maxn;++i)fac[i]=fac[i-1]*i%p;
+	inv[maxn-1]=q_pow(fac[maxn-1],p-2,p);
+	for(int i=maxn-2;i>=0;--i)inv[i]=inv[i+1]*(i+1)%p;
+}
+
+
+/**
+ *  6.模线性方程(组)
+ */
+
+/** 6.1 求模线性方程的特解 O(logn)
+ * a*x = b (mod m)的一个特解
+ * 如果没有解会返回m
+ */
+long long solve(long long a,long long b,long long m){
+	long long x,y,d;
+	gcd(a,m,d,x,y);  //扩展gcd求逆元和最大公因数
+	if(b%d==0){
+		x=(x%m+m)%m;
+		return x*(b/d)%(m/d);
+	}
+	else return m;
+}
+
+/** 6.2 求模线性方程 [0,m) 的区间所有解 O(logn)
+ *  结果存在vector里, 
+ */
+vector<long long>ans;
+void solve(long long a,long long b,long long m){
+	ans.clear();
+	long long x,y,d;
+	gcd(a,m,d,x,y);
+	if(b%d==0){
+		x=(x%m+m)%m;
+		y=m/d;
+		ans.push_back(x*(b/d)%y);
+		for(int i=1;i<d;++i)
+			ans.push_back((ans[i-1]+y)%m);
+	}
+}
+
+/** 6.3 中国剩余定理(互素时) O(nlogM)
+ *  求解 x= a[i] (mod m[i]) 的方程组
+ *  要求m[i]两两互素 , 返回一个特解
+ */
+long long China(long long a[],long long m[],int n){
+	long long M=1,ans=0;
+	long long x,y,d,tm;
+	for(int i=0;i<n;++i)M*=m[i];
+	for(int i=0;i<n;++i){
+		tm=M/m[i];
+		gcd(tm,m[i],d,x,y);
+		ans = (ans + tm*x*a[i])%M;
+	}
+	return (ans+M)%M;
+}
+
+/** 6.4 中国剩余定理(不互素时) O(nlogM)
+ *  求解 x = a[i] (nod m[i]), m[i]可以不互素
+ *  如果无解就返回-1 ;
+ */
+long long China_ex(long long a[],long long m[],int n){
+	if(1==n&&0==a[0])return m[0];
+	long long ans=a[0],_lcm=m[0];
+	bool flag=true;
+	long long x,y,_gcd,tmp;
+	for(int i=1;i<n;++i){
+		gcd(_lcm,m[i],_gcd,x,y);
+		if((a[i]-ans)%_gcd){ flag=false; break; }
+		tmp=_lcm*( ((a[i]-ans)/_gcd*x)%(m[i]/_gcd) );
+		_lcm=_lcm/_gcd*m[i];
+		ans=(ans+tmp)%_lcm;
+		if(ans<0)ans+=_lcm;
+	}
+	return flag? ans : -1;
+}
+
+
+/** 
+ * 8. mobius 莫比乌斯函数
+ */
+// 8.1 单独求值 O(n^0.5)
+int mu(int n){
+	int cnt,k=0;
+	for(int i=2;i*i<=n;++i){
+		if(n%i)continue;
+		cnt=0;
+		++k;
+		while(!(n%i)){
+			n/=i;
+			++cnt;
+		}
+		if(cnt>1)return 0;
+	}
+	if(n != 1)++k;
+	return (k&1)? -1:1;
+}
+
+// 8.2 莫比乌斯函数递推 O(nlogn)
+const int maxn=1e5+10;
+int mu[maxn];
+void mobius(){
+	int delta, target;
+	for(int i=1;i<maxn;++i){
+		target= (i==1)? 1:0;
+		delta=target - mu[i];
+		mu[i]=delta;
+		for(int j=i<<1;j<maxn;j += i)
+			mu[j] += delta;
+	}
+}
+
+// 8.3 线性筛(与素数筛差不多)
+const int maxn=1e5+10;
+bool notPrime[maxn];
+int cnt, prime[9600], mu[maxn];
+void mobius()
+{
+    memset(vis,0,sizeof(vis));
+    mu[1]=1;
+    cnt=0;
+    for(int i=2;i<maxn;++i)
+    {
+        if(!vis[i])
+        {
+            prime[cnt++]=i;
+            mu[i]=-1;
+        }
+        for(int j=0;j<cnt&&i*prime[j]<maxn;++j)
+        {
+            vis[i*prime[j]]=1;
+            if(i%prime[j]==0)
+            {
+                mu[i*prime[j]]=0;
+                break;
+            }
+            else mu[i*prime[j]]= -mu[i];
+        }
+    }
+}
+
 
