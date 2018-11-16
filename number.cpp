@@ -518,3 +518,280 @@ void mobius()
 }
 
 
+/**
+ *  9.组合数取模
+ */
+
+//  9.1. 当0<=n,m<=1000时,靠杨辉三角递推
+const int maxn=1001;
+long long C[maxn][maxn];
+void init(){
+	C[0][0]=1;
+    for(int i=1;i<maxn;++i)
+        for(int j=0;j<maxn;++j){
+            C[i][j]=C[i-1][j]+C[i-1][j-1];
+            if(C[i][j]>=P)C[i][j] -= P;
+        }
+}
+
+// 9.2. 当0<=n,m<2e6时 用阶乘的逆元求解
+//		阶乘的逆元可以预处理出来, 也可以每次查询的时候再计算    
+const int maxn=1e5+10;
+long long fac[maxn],inv[maxn];
+void init(){
+    fac[0]=fac[1]=1;
+    for(int i=2;i<maxn;++i)fac[i]=fac[i-1]*i%P;
+}
+long long C(int n,int k){
+    long long x,y,d;
+    long long tmp=(fac[k]*fac[n-k])%P;
+    gcd(tmp,P,d,x,y);
+    y=fac[n]*(x%P)%P;
+    if(y<0)y += P;
+    return y;
+}
+
+// 9.3 当1<=m,n<=1e18, 2<=P<=1e6时(P为素数) Lucas定理
+const long long P=100003;
+long long fac[P];
+long long q_pow(long long a){
+    long long ans=1;
+    long long b=P-2;
+    while(b){
+        if(b&1)ans=ans*a%P;
+        a=a*a%P;
+        b>>=1;
+    }
+    return ans;
+}
+void init(){
+    fac[0]=fac[1]=1;
+    for(int i=2;i<P;++i)
+        fac[i]=fac[i-1]*i%P;
+}
+long long C(long long n,long long m){
+    if(m>n)return 0;
+    return q_pow(fac[m]*fac[n-m]%P)*fac[n]%P;
+}
+long long Lucas(long long n,long long m){
+    if(m==0)return 1;
+    return (C(n%P,m%P)*Lucas(n/P,m/P))%P;
+}
+
+
+// 9.3. 当1<=m,n<=1e18, 2<=P<=1e6(P为合数时) 拓展Lucas定理加中国剩余定理
+//      需要gcd,q_pow,  调用ll ans=solve(n,m,P);
+typedef long long ll;
+ll inv(ll a,ll mod){
+	if(!a)return 0;
+	ll x,d,y;
+	gcd(a,mod,d,x,y);
+	x%=mod;
+	if(x<=0)x+=mod;
+	return x;
+}
+ll Mul(ll n,ll pi,ll pk){
+	if(!n)return 1LL;
+	ll ans=1LL;
+	if(n/pk){
+		for(ll i=2;i<=pk;++i)
+			if(i%pi)ans=ans*i%pk;
+		ans=q_pow(ans,n/pk,pk);
+	}
+	for(ll i=2;i<=n%pk;++i)
+		if(i%pi)ans=ans*i%pk;
+	return ans*Mul(n/pi,pi,pk)%pk;
+}
+ll C(ll n,ll m,ll Mod,ll pi,ll pk){
+	if(m>n)return 0;
+	ll a=Mul(n,pi,pk),b=Mul(m,pi,pk),c=Mul(n-m,pi,pk);
+	ll k=0,ans;
+	for(ll i=n;i;i /= pi)k += i/pi;
+	for(ll i=m;i;i /= pi)k -= i/pi;
+	for(ll i=n-m;i;i /= pi)k -= i/pi;
+	ans=a*inv(b,pk)%pk*inv(c,pk)%pk*q_pow(pi,k,pk)%pk;
+	return ans*(Mod/pk)%Mod*inv(Mod/pk,pk)%Mod;
+}
+ll solve(long long n,long long m,long long P){
+	long long ans=0;
+	for(ll x=P,i=2;i<=P;++i)
+		if(x%i==0){
+			ll pk=1;
+			while(x%i==0)pk *= i,x /= i;
+			ans=(ans+C(n,m,P,i,pk))%P;
+		}
+	return ans;
+}
+
+/** 10. 矩阵类
+ */
+
+// 10.1. 矩阵类, 使用前务必调用clear()清零
+const int maxN=1010;
+const int maxM=1010;
+struct Matrix{
+	int n,m;
+	int a[maxN][maxM];
+	inline void clear(){ n=m=0; memset(a,0,sizeof(a)); }
+	Matrix operator+(const Matrix& b)const{
+		Matrix tmp;tmp.n=n;tmp.m=m;
+		for(int i=0;i<n;++i)
+			for(int j=0;j<m;++j)
+				tmp.a[i][j]=a[i][j]+b.a[i][j];
+		return tmp;
+	}
+	Matrix operator-(const Matrix& b)const{
+		Matrix tmp;tmp.n=n;tmp.m=m;
+		for(int i=0;i<n;++i)
+			for(int j=0;j<m;++j)
+				tmp.a[i][j]=a[i][j]-b.a[i][j];
+		return tmp;
+	}
+	Matrix operator*(const Matrix& b)const{
+		Matrix tmp;tmp.clear();
+		tmp.n=n;tmp.m=b.m;
+		for(int i=0;i<n;++i)
+			for(int j=0;j<b.m;++j)
+				for(int k=0;k<m;++k)
+					tmp.a[i][j] += a[i][k]*b.a[k][j];
+		return tmp;
+	}
+};
+
+// 10.2矩阵的逆 O(n^3)
+// 输入 A原矩阵, C逆矩阵 n矩阵的阶数
+// 当矩阵不是满秩的, 返回0
+// 当算整数取模的时候,只需要改动前两个内联函数和变成乘逆元即可
+inline vector<double>operator*(const vector<double>&a,double b){
+	int n=a.size();
+	vector<double> res(n,0);
+	for(int i=0;i<n;++i)res[i]=a[i]*b;
+	return res;
+}
+inline vector<double>operator-(const vector<double>&a,const vector<double>& b){
+	int n=a.size();
+	vector<double> res(n,0);
+	for(int i=0;i<n;++i)res[i]=a[i]-b[i];
+	return res;
+}
+const double eps=1e-8;
+inline int inverse(vector<double>A[],vector<double>C[],int n){
+	for(int i=0;i<n;++i){
+		C[i]=vector<double>(n,0);
+		C[i][i]=1;
+	}
+	for(int i=0;i<n;++i){
+		for(int j=i;j<n;++j)if(fabs(A[j][i]>eps)){
+			swap(A[i],A[j]);
+			swap(C[i],C[j]);
+			break;
+		}
+		if(fabs(A[i][i])<eps)return 0;//矩阵不是满秩的
+		C[i]=C[i]*(1.0/A[i][i]);
+		A[i]=A[i]*(1.0/A[i][i]);
+		for(int j=0;j<n;++j)
+			if(j!=i&&fabs(A[j][i]>eps)){
+				C[j]=C[j]-C[i]*A[j][i];
+				A[j]=A[j]-A[i]*A[j][i];
+			}
+	}
+	return 1;
+}
+
+/** 10.3矩阵快速幂加速递推
+ *  考虑到递推式 f[x]=a[n-1]*f[x-1]+a[n-2]*f[x-2]+....+a[0]*f[x-n]
+ *  可以变为:
+ *    [ 0  ,  1 ,  0 ,...... 0 ]   [f[x-n]  ]
+ *    [ 0  ,  0 ,  1 ,...... 0 ]   [f[x-n+1]]
+ *  A=[ ...................... ] B=[........]
+ *    [ 0  ,  0 ,  0 ,...... 1 ]   [ f[x-2] ]
+ *    [a[0],a[1],a[2],...a[n-1]]   [ f[x-1] ]
+ *  构造出A,B矩阵用快速幂计算即可
+ *  (需要矩阵类)
+ */
+// a[],b[]为递推的系数, n为矩阵大小, t为递推次数 O(n^3logt)
+int solve(int a[],int b[],int n,int t){
+	Matrix M,F,E;
+	M.clear(); M.n=M.m=n;
+	E.clear(); E.n=E.m=n;
+	F.clear(); F.n=n;F.m=1;
+	for(int i=0;i<n-1;++i)M.a[i][i+1]=1;
+	for(int i=0;i<n;++i){
+		M.a[n-1][i]=a[i];
+		F.a[i][0]=b[i];
+		E.a[i][1]=1;
+	}
+	if(t<n)return F.a[t][0];
+	for(t -= n-1;t;t>>=1){
+		if(t&1)E=M*E;
+		M=M*M;
+	}
+	F=E*F;
+	return F.a[n-1][0];
+}
+
+/** 10.4高斯消元Gauss O(n^3)
+ *  a[][maxn]为方程组对应的矩阵, n为未知数上的个数
+ *  l,ans存储解, l[]表示是否为自由元 True表示不是自由元
+ *  返回解空间的维数
+ */
+const int maxn=105;
+const double eps=1e-8;
+int Gauss(double a[][maxn],bool l[],double ans[],const int& n){
+	int res=0,r=0;
+	for(int i=0;i<n;++i)l[i]=false;
+	for(int i=0;i<n;++i){
+		for(int j=r;j<n;++j)if(fabs(a[j][i])>eps){
+			for(int k=i;k<=n;++k)swap(a[j][k],a[r][k]);
+			break;
+		}
+		if(fabs(a[r][i])<eps){ ++res; continue; }
+		for(int j=0;j<n;++j)
+			if(j!=r && fabs(a[j][i])>eps){
+				double tmp=a[j][i]/a[r][i];
+				for(int k=i;k<=n;++k)a[j][k] -= tmp*a[r][k];
+			}
+		l[i]=true;
+		++r;
+	}
+	for(int i=0;i<n;++i)if(l[i])
+		for(int j=0;j<n;++j)if(fabs(a[j][i])>eps)
+			ans[i]=a[j][n]/a[j][i];
+	return res;
+}
+
+
+/** 11.分数类
+ *  通过分子,分母进行构造
+ *  重载了 +,-,*,/,<,==
+ */
+struct Fraction{
+	long long num,den;
+	Fraction(long long n=0,d=0){
+		if(d<0){ n=-n; d=-d;}
+		assert(d!=0);
+		long long g=__gcd(abs(n),d);
+		num=n/g;den=d/g;
+	}
+	Fraction operator+(const Fraction& b)const{
+		return Fraction(num*b.den+den*b.num,den*b.den);
+	}
+	Fraction operator-(const Fraction& b)const{
+		return Fraction(num*b.den-den*b.num,den*b.den);
+	}
+	Fraction operator*(const Fraction& b)const{
+		return Fraction(num*b.num,den*b.den);
+	}
+	Fraction operator/(const Fraction& b)const{
+		return Fraction(num*b.den,den*b.num);
+	}
+	bool operator<(const Fraction& b)const{
+		return num*b.den < den*b.num;
+	}
+	bool operator==(const Fraction& b)const{
+		return num*b.den == den*b.num;
+	}
+};
+
+
+/** 12. 
