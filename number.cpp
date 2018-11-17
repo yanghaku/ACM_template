@@ -204,7 +204,7 @@ int getFactor(long long x){
 	}
 	if(tmp != 1){
 		factor[fatCnt][0]=tmp;
-		factor[fatCnt][1]=1;
+		factor[fatCnt++][1]=1;
 	}
 	return fatCnt;
 }
@@ -453,6 +453,123 @@ long long China_ex(long long a[],long long m[],int n){
 	return flag? ans : -1;
 }
 
+/** 7.数论其他知识
+ */
+
+/** 7.1 原根
+ *  需要预先筛除prime[]数组,
+ *  getFactor()求出质因子
+ *  接口: primitive_root(P) 返回P的最小原根
+ */
+int primitive_root(int P){
+	if(2==P)return 1;
+	getFactor(P-1);
+	for(int g=2;g<P;++g){
+		bool flag=true;
+		for(int i=0;i<fatCnt;++i){
+			if(q_pow(g,(P-1)/factor[i][0],P)==1){
+				flag=false;
+				break;
+			}
+		}
+		if(flag)return g;
+	}
+	return -1;
+}
+
+/** 7.2 勒让德符号 (p需要是奇素数) O(logn)
+ *  当为1 : d是模 p的平方剩余
+ *  当为-1: d不是模p的平常剩余
+ *  当为0: d整除p
+ */
+int Legendre(long long d,long long p){
+	int coef= (d>0)? 1: (((p-1)%4==0)? 1:-1);
+	d=(d>0)? d: -d;
+	d%=p;
+	if(q_pow(d,(p-1)>>1,p)==1)return coef;
+	else return -coef;
+}
+
+/** 7.3 平方剩余  O((logn)^2)
+ *  求 x^2=a(mod m)的最小整数解
+ *  无解返回 -1
+ */
+long long modsqr(long long a,long long m){
+	long long b,k,i,x;
+	a%=m;
+	if(2==m)return a%m;
+	if(q_pow(a,(m-1)>>1,m)==1){
+		if(m%4 != 3){
+			for(b=1;q_pow(b,(m-1)>>1,m)==1;++b);
+			i=(m-1)>>1;k=0;
+			while(true){
+				i /= 2; k /= 2;
+				long long h1=q_pow(a,i,m);
+				long long h2=q_pow(b,k,m);
+				if((h1*h2+1)%m==0)k+=(m-1)>>1;
+				if(i&1)break;
+			}
+			long long t1=q_pow(a,(i+1)>>1,m);
+			long long t2=q_pow(b,k>>1,m);
+			x=q_mul(t1,t2,m);
+		}
+		else x=q_pow(a,(m+1)>>2,m);
+		if(x*2>m)x=m-x;
+		return x;
+	}
+	return -1;
+}
+
+/** 7.4离散对数 O(n^0.5logn)
+ *  求a^x=b(mod n)的最小整数解x, 无解返回-1
+ *  (n为素数)
+ */
+long long log_mod(long long a,long long b,long long n){
+	long long e=1;
+	int m=(int)sqrt(n+0.5);
+	long long v=inv(q_pow(a,m,n),n);
+	map<long long,int>x;
+	x[1]=0;
+	for(int i=1;i<m;++i){
+		e=q_mul(e,a,n);
+		if(!x.count(e))x[e]=i;
+	}
+	for(int i=0;i<m;++i){
+		if(x.count(b))return i*m+x[b];
+		b=q_mul(b,v,n);
+	}
+	return -1;
+}
+
+/** 7.5 N次剩余
+ *  求解 x^N=a(mod P)的所有整数解x, 其中P为素数
+ *  找到原根g后, 所有P-1都可以与 g^i 建立一一对应关系
+ *  然后转换成 g^(N*y) = g^t (mod (p-1))
+ *  就变为 y*N=t(mod (p-1))   (t可以用离散对数求解)
+ *
+ *  需要写好的函数: 4.2扩展gcd, 4.4q_pow, 4.5q_mul
+ *        3.1质因子分解, 7.1原根, 7.4离散对数
+ */
+vector<long long>residue(long long N,long long a,long long p){
+	long long g=primitive_root(p);
+	long long m=log_mod(g,a,p);
+	vector<long long>ret;
+	if(0==a){ ret.push_back(0); return ret; }
+	if(-1==m)return ret;
+	long long A=N,B=p-1,C=m,x,y;
+	long long d;
+	gcd(A,B,d,x,y);
+	if(C%d != 0)return ret;
+	x=x*(C/d)%B;
+	long long delta=B/d;
+	for(int i=0;i<d;++i){
+		x=((x+delta)%B+B)%B;
+		ret.push_back((q_pow(g,x,p)));
+	}
+	sort(ret.begin(),ret.end());
+	ret.erase(unique(ret.begin(),ret.end()), ret.end());
+	return ret;
+}
 
 /** 
  * 8. mobius 莫比乌斯函数
@@ -794,4 +911,215 @@ struct Fraction{
 };
 
 
-/** 12. 
+/** 12. 二分、三分计算
+ */
+// 12.1 二分计算, test()为自己的判断函数
+const double eps=1e-15;
+double Bsearch(double l,double r){
+	while(r-l > eps){
+		double mid=(l+r)/2;
+		if(test(mid))l=mid;
+		else r=mid;
+	}
+	return (l+r)/2;
+}
+
+/** 12.2 三分
+ */
+// 12.2.1 三等分法  求F(x)最大值, 返回x
+double Tsearch(double l,double r){
+	double midl=0,midr=0;
+	while(r-l > eps){
+		midl=(2*l + r)/3;
+		midr=(2*r + l)/3;
+		if(F(midl)<F(midr))l=midl;
+		else r=midr;
+	}
+	return midl;
+}
+
+// 12.2.2 midmid法
+double Tsearch(double l,double r){
+	double mid=0,midmid=0;
+	while(r-l > eps){
+		mid=(r+l)/2;
+		midmid=(mid+r)/2;
+		if(F(mid)>F(midmid))r=midmid;
+		else l=mid;
+	}
+	return mid;
+}
+
+// 12.2.3 优选法  (求最大值)
+const double eps=1e-9;
+const double cef=(sqrt(5.0)-1.0)*0.5;
+
+double Tsearch_s(double l,double r){
+	double midl=r-(r-l)*cef;
+	double midr=l+(r-l)*cef;
+	while(r-l > eps){
+		if(F(midl)<F(midr)){
+			l=midl; midl=midr;
+			midr=l+ (r-l)*cef;
+		}
+		else{
+			r=midr; midr=midl;
+			midl=r- (r-l)*cef;
+		}
+	}
+	return midr;
+}
+
+/** 13. 求积分
+ */
+
+/** 13.1 Simpson 自适应辛普森方法
+ *  eps为精度要求, F()为要积分的函数
+ *  直接调用 asr(积分下限,积分上限) 即可 
+ */
+const double eps=1e-10;
+inline double simpon(double l,double r){
+	double mid=(l+r)/2;
+	return (F(l)+4*F(mid)+F(r))*(r-l)/6;
+}
+double asr(double l,double r,double A){
+	double mid=(l+r)/2;
+	double L=simpon(l,mid),R=simpon(mid,r);
+	if(fabs(L+R-A)<=15*eps)return L+R+(L+R-A)/15.0;
+	else return asr(l,mid,L)+asr(mid,r,R);
+}
+double asr(double l,double r){
+	return asr(l,r,simpon(l,r));
+}
+
+/** 13.2 Romberg 龙贝格方法 O((logK)^2)
+ */
+const double eps=1e-8;
+double Romberg(double L,double R){
+	vector<double> t;
+	double h=R-L,last,curr;
+	int k=1,i=1;
+	t.push_back(h* (F(L)+F(R))/2 );
+	while(true){
+		last=t.back();
+		curr=0;
+		double x=L+h/2;
+		for(int j=0;j<k;++j,x += h)curr += F(x);
+		curr=(t[0]+h*curr)/2;
+		double k1=4.0/3.0, k2=1.0/3.0;
+		for(int j=0;j<i;++j){
+			double tmp=k1*curr-k2*t[j];
+			t[j]=curr;curr=tmp;
+			k2 /= 4*k1-k2;
+			k1=k2+1;
+		}
+		t.push_back(curr);
+		k *= 2;
+		h /= 2;
+		++i;
+		if(fabs(last-curr)<eps)break; 
+	}
+	return t.back();
+}
+
+/** 14. FFT 快速傅里叶变换
+ */
+
+
+
+
+
+
+
+
+
+/** 
+ *   17. 高阶方程求根 O(N^3*logK)
+ *  对于方程 a[n]*x^n+a[n-1]*x^n-1+....+a[1]*x+a[0]=0,求出方程的所有实数解
+ *  因为利用了递归和vector,时间效率不高,
+ */
+const double eps=1e-12;
+const double inf=1e+12;
+inline int sign(double x){ return (x< -eps)? -1: x>eps; } 
+inline double get(const vector<double>& coef,double x){
+	double e=1,s=0;
+	for(int i=0;i<coef.size();++i,e*=x)s+=coef[i]*e;
+	return s;
+}
+double find(const vector<double>& coef,int n,double lo,double hi){
+	double sign_lo,sign_hi;
+	if((sign_lo=sign(get(coef,lo))) == 0)return lo;
+	if((sign_hi=sign(get(coef,hi))) == 0)return hi;
+	if( sign_lo*sign_hi>0 )return inf;
+	for(int step=0;step<100&&hi-lo>eps;++step){
+		double m=(lo+hi)*0.5;
+		int sign_mid=sign(get(coef,m));
+		if(sign_mid==0)return m;
+		if(sign_lo*sign_mid<0)hi=m;
+		else lo=m;
+	}
+	return (lo+hi)*0.5;
+}
+vector<double> solve(vector<double>coef,int n){
+	vector<double>ret;
+	if(n==1){
+		if(sign(coef[1]))ret.push_back(-coef[0]/coef[1]);
+		return ret;
+	}
+	vector<double> dcoef(n); //求导
+	for(int i=0;i<n;++i)dcoef[i]=coef[i+1]*(i+1);
+	vector<double> droot=solve(dcoef,n-1);
+	droot.insert(droot.begin(),-inf);
+	droot.push_back(inf);
+	for(int i=0;i+1<droot.size();++i){
+		double tmp=find(coef,n,droot[i],droot[i+1]);
+		if(tmp<inf)ret.push_back(tmp);
+	}
+	return ret;
+}
+
+
+
+
+
+
+
+
+
+/**
+ *  19.其他
+ */
+// 19.1 进制转换
+// 将x进制的串s转换为y进制的串
+string transform(int x,int y,string s){
+	int len=s.size(),sum=0;
+	string res="";
+	for(int i=0;i<len;++i){
+		if(s[i]=='-')continue;
+		if(s[i]>='0'&&s[i]<='9')
+			sum=sum*x+s[i]-'0';
+		else if(s[i]>='A'&&s[i]<='Z')
+			sum=sum*x+s[i]-'A'+10;
+		else sum=sum*x+s[i]-'a'+10+26;
+	}
+	while(sum){
+		char tmp=sum%y;
+		sum /= y;
+		if(tmp<=9)tmp += '0';
+		else if(tmp<=36)tmp +='A'-10;
+		else tmp += 'A'-10-26;
+		res=tmp+res;
+	}
+	if(res.size()==0)res="0";
+	if(s[0]=='-')res='-'+res;
+	return res;
+}
+
+// 19.2 格雷码 O(2^n)
+// 给一个n, 求一个0~2^n-1的排列, 使得相邻两项(包括首尾)的二进制只有一位不同
+vector<int> initGray(int n){
+	vector<int>res;res.resize(1<<n);
+	for(int i=0;i<(1<<n);++i)
+		res[i]=(i^(i>>1));
+	return res;
+}
