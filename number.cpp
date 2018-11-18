@@ -111,7 +111,134 @@ bool miller_rabin(long long n,int S=50){
 	}
 	return true;
 }
-
+/** 1.4.3 大数素数测试
+ *  最好用java的BigInteger, bool isProbablePrime()
+ *  当java没法过的时候再用这个
+ */
+const int MAXL=4;
+#define M10 1000000000
+#define Z10 9
+const int zero[MAXL-1]={0};
+struct bnum{
+	int data[MAXL];
+	void read(){
+		memset(data,0,sizeof(data));
+		char buf[32];
+		scanf("%s",buf);
+		int len=(int)strlen(buf);
+		int i=0,k;
+		while(len >= Z10){
+			for(k=len-Z10;k<len;++k)data[i]=data[i]*10+buf[k]-'0';
+			++i;
+			len -= Z10;
+		}
+		if(len>0){
+			for(k=0;k<len;++k)data[i]=data[i]*10+buf[k]-'0';
+		}
+	}
+	bool operator==(const bnum& x){ return memcmp(data,x.data,sizeof(data))==0; }
+	bnum& operator=(const int x){
+		memset(data,0,sizeof(data));
+		data[0]=x;
+		return *this;
+	}
+	bnum operator+(const bnum& x){
+		int i,carry=0;
+		bnum ans;
+		for(int i=0;i<MAXL;++i){
+			ans.data[i]=data[i]+x.data[i]+carry;
+			carry = ans.data[i]/M10;
+			ans.data[i] %= M10;
+		}
+		return ans;
+	}
+	bnum operator-(const bnum& x){
+		int i,carry=0;
+		bnum ans;
+		for(i=0;i<MAXL;++i){
+			ans.data[i]=data[i]-x.data[i]-carry;
+			if(ans.data[i]<0){
+				ans.data[i] += M10;
+				carry=1;
+			}else carry=0;
+		}
+		return ans;
+	}
+	bnum operator%(const bnum& x){
+		for(int i=MAXL-1;i>-1;--i){
+			if(data[i]<x.data[i])return *this;
+			else if(data[i]>x.data[i])break;
+		}
+		return ((*this) - x);
+	}
+	bnum& div2(){
+		int carry=0,tmp;
+		for(int i=MAXL-1;i>-1;--i){
+			tmp=data[i]&1;
+			data[i]=(data[i]+carry)>>1;
+			carry=tmp*M10;
+		}
+		return *this;
+	}
+	bool is_odd(){
+		return (data[0]&1)==1;
+	}
+	bool is_zero(){
+		for(int i=0;i<MAXL;++i){
+			if(data[i])return false;
+		}
+		return true;
+	}
+};
+void mul_mod(bnum& a0,bnum& b0,bnum& p,bnum& ans){
+	bnum tmp=a0,b=b0;
+	ans=0;
+	while(!b.is_zero()){
+		if(b.is_odd())ans=(ans+tmp)%p;
+		tmp=(tmp+tmp)%p;
+		b.div2();
+	}
+}
+void pow_mod(bnum& a0,bnum& b0,bnum& p,bnum& ans){
+	bnum tmp=a0,b=b0;
+	ans=1;
+	while(!b.is_zero()){
+		if(b.is_odd())mul_mod(ans,tmp,p,ans);
+		mul_mod(tmp,tmp,p,tmp);
+		b.div2();
+	}
+}
+bool MillerRabinTest(bnum& p,int iter){
+	int i,small=0,j,d=0;
+	for(i=1;i<MAXL;++i){
+		if(p.data[i])break;
+	}
+	if(i==MAXL){
+		if(p.data[0]<2)return false;
+		if(p.data[0]==2)return true;
+		small=1;
+	}
+	if(!p.is_odd())return false;
+	bnum a,s,m,one,pd1;
+	one=1;
+	s=pd1=p-one;
+	while(!s.is_odd()){
+		s.div2(); ++d;
+	}
+	for(int i=0;i<iter;++i){
+		a=rand();
+		if(small)a.data[0]=a.data[0]%(p.data[0]-1)+1;
+		else{
+			a.data[1]=a.data[0]/M10;
+			a.data[0]%=M10;
+		}
+		if(a==one)continue;
+		pow_mod(a,s,p,m);
+		for(j=0;j<d && !(m==one) && !(m==pd1);++j)mul_mod(m,m,p,m);
+		if(!(m==pd1) && j>0)return false;
+	}
+	return true;
+}
 
 /**
  *  2.欧拉函数
@@ -190,20 +317,19 @@ long long factor[100][2];
 int fatCnt;
 int getFactor(long long x){
 	fatCnt=0;
-	long long tmp=x;
-	for(int i=2;i<=tmp/i;++i){
+	for(int i=2;i<=x/i;++i){
 		factor[fatCnt][1]=0;
-		if(tmp%i==0){
+		if(x%i==0){
 			factor[fatCnt][0]=i;
-			while(tmp%i==0){
+			while(x%i==0){
 				++factor[fatCnt][1];
-				tmp /= i;
+				x /= i;
 			}
 			++fatCnt;
 		}
 	}
-	if(tmp != 1){
-		factor[fatCnt][0]=tmp;
+	if(x != 1){
+		factor[fatCnt][0]=x;
 		factor[fatCnt++][1]=1;
 	}
 	return fatCnt;
@@ -847,7 +973,11 @@ int solve(int a[],int b[],int n,int t){
 	return F.a[n-1][0];
 }
 
-/** 10.4高斯消元Gauss O(n^3)
+/** 
+ *  11. 高斯消元
+ */
+
+/** 11.1 高斯消元Gauss O(n^3)
  *  a[][maxn]为方程组对应的矩阵, n为未知数上的个数
  *  l,ans存储解, l[]表示是否为自由元 True表示不是自由元
  *  返回解空间的维数
@@ -876,9 +1006,37 @@ int Gauss(double a[][maxn],bool l[],double ans[],const int& n){
 			ans[i]=a[j][n]/a[j][i];
 	return res;
 }
+/** 11.2 列主元高斯消元
+ *  求解 a[][]*x[]=b[]
+ *  返回是否有唯一解,若有解就存在b[]中
+ */
+const int maxn=100;
+int Gauss(int n,double a[][maxn],double b[]){
+	int i,j,row=0;
+	double maxP,tmp;
+	for(int k=0;k<n;++k){ //枚举每一列
+		for(maxP=0,i=k;i<n;++i){ //对于第k列,往下找最大的一行
+			if(fabs(a[i][k]) > fabs(maxP))maxP=a[row=i][k];
+		}
+		if(fabs(maxP)<eps)return 0;//如果下面全是0,那么就没有唯一解
+		if(row != k){
+			for(j=k;j<n;++j)swap(a[k][j],a[row][j]);
+			swap(b[k],b[row]);
+		}
+		for(j=k+1;j<n;++j){ //枚举k行后的每一行
+			a[k][j] /= maxP;
+			for(i=k+1;i<n;++i)a[i][j] -= a[i][k]*a[k][j];
+		}
+		b[k]/=maxP;
+		for(i=n-1;i>-1;--i)
+			for(j=i+1;j<n;++j)b[i] -= a[i][j]*b[j];
+	}
+	return 1;
+}
 
 
-/** 11.分数类
+
+/** 12.分数类
  *  通过分子,分母进行构造
  *  重载了 +,-,*,/,<,==
  */
@@ -911,9 +1069,9 @@ struct Fraction{
 };
 
 
-/** 12. 二分、三分计算
+/** 13. 二分、三分计算
  */
-// 12.1 二分计算, test()为自己的判断函数
+// 13.1 二分计算, test()为自己的判断函数
 const double eps=1e-15;
 double Bsearch(double l,double r){
 	while(r-l > eps){
@@ -924,9 +1082,9 @@ double Bsearch(double l,double r){
 	return (l+r)/2;
 }
 
-/** 12.2 三分
+/** 13.2 三分
  */
-// 12.2.1 三等分法  求F(x)最大值, 返回x
+// 13.2.1 三等分法  求F(x)最大值, 返回x
 double Tsearch(double l,double r){
 	double midl=0,midr=0;
 	while(r-l > eps){
@@ -938,7 +1096,7 @@ double Tsearch(double l,double r){
 	return midl;
 }
 
-// 12.2.2 midmid法
+// 13.2.2 midmid法
 double Tsearch(double l,double r){
 	double mid=0,midmid=0;
 	while(r-l > eps){
@@ -950,7 +1108,7 @@ double Tsearch(double l,double r){
 	return mid;
 }
 
-// 12.2.3 优选法  (求最大值)
+// 13.2.3 优选法  (求最大值)
 const double eps=1e-9;
 const double cef=(sqrt(5.0)-1.0)*0.5;
 
@@ -970,10 +1128,10 @@ double Tsearch_s(double l,double r){
 	return midr;
 }
 
-/** 13. 求积分
+/** 14. 求积分
  */
 
-/** 13.1 Simpson 自适应辛普森方法
+/** 14.1 Simpson 自适应辛普森方法
  *  eps为精度要求, F()为要积分的函数
  *  直接调用 asr(积分下限,积分上限) 即可 
  */
@@ -992,7 +1150,7 @@ double asr(double l,double r){
 	return asr(l,r,simpon(l,r));
 }
 
-/** 13.2 Romberg 龙贝格方法 O((logK)^2)
+/** 14.2 Romberg 龙贝格方法 O((logK)^2)
  */
 const double eps=1e-8;
 double Romberg(double L,double R){
@@ -1022,19 +1180,105 @@ double Romberg(double L,double R){
 	return t.back();
 }
 
-/** 14. FFT 快速傅里叶变换
+/** 15. FFT 快速傅里叶变换
+ *  例:hdu1402高精乘
  */
+const double PI=acos(-1.0);
+struct Complex{
+	double x,y; //x+yi
+	Complex(double _x=0.0,double _y=0.0):x(_x),y(_y){}
+	Complex operator-(const Complex& b)const{
+		return Complex(x-b.x,y-b.y);
+	}
+	Complex operator+(const Complex& b)const{
+		return Complex(x+b.x,y+b.y);
+	}
+	Complex operator*(const Complex& b)const{
+		return Complex(x*b.x-y*b.y,x*b.y+y*b.x);
+	}
+};
+/* 进行FFT与IFFT前的反转变换
+ * 位置i与i二进制反转后的位置互换
+ * len 必须为2的幂
+ */
+void change(Complex y[],int len){
+	int i,j,k;
+	for(i=1,j=len/2;i<len-1;++i){
+		if(i<j)swap(y[i],y[j]);
+		k=len/2;
+		while(j>=k){
+			j -= k;
+			k /= 2;
+		}
+		if(j<k)j += k;
+	}
+}
+/* len必须为2的幂
+ * on==1 :DFT, on==-1: IDFT
+ */
+void fft(Complex y[],int len,int on){
+	change(y,len);
+	for(int h=2;h<=len;h<<=1){
+		Complex wn(cos(-on*2*PI/h),sin(-on*2*PI/h));
+		for(int j=0;j<len;j+=h){
+			Complex w(1,0);
+			for(int k=j;k<j+h/2;++k){
+				Complex u=y[k];
+				Complex t=w*y[k+h/2];
+				y[k]=u+t;
+				y[k+h/2]=u-t;
+				w=w*wn;
+			}
+		}
+	}
+	if(on == -1)
+		for(int i=0;i<len;++i)
+			y[i].x /= len;
+}
+const int maxn=200010;
+Complex x1[maxn],x2[maxn];
+char str1[maxn/2],str2[maxn/2];
+int sum[maxn];
+int main(){
+	while(scanf("%s%s",str1,str2)!=EOF){
+		int len1=strlen(str1);
+		int len2=strlen(str2);
+		int len=1;
+		while(len<len1*2 || len<len2*2)len<<=1;
+		for(int i=0;i<len1;++i)
+			x1[i]=Complex(str1[len1-i-1]-'0',0);
+		for(int i=len1;i<len;++i)
+			x1[i]=Complex(0,0);
+		for(int i=0;i<len2;++i)
+			x2[i]=Complex(str2[len2-i-1]-'0',0);
+		for(int i=len2;i<len;++i)
+			x2[i]=Complex(0,0);
+		fft(x1,len,1);
+		fft(x2,len,1);
+		for(int i=0;i<len;++i)
+			x1[i]=x1[i]*x2[i];
+		fft(x1,len,-1);
+		for(int i=0;i<len;++i)
+			sum[i]=(int)(x1[i].x+0.5);
+		for(int i=0;i<len;++i){
+			sum[i+1] += sum[i]/10;
+			sum[i] %= 10;
+		}
+		len=len1+len2-1;
+		while(sum[len]<=0&&len>0)--len;
+		for(int i=len;i>=0;--i)
+			printf("%c",sum[i]+'0');
+		printf("\n");
+	}
+	return 0;
+}
 
-
-
-
-
-
+/** 16 NTT 快速数论变换, 
 
 
 
 /** 
- *   17. 高阶方程求根 O(N^3*logK)
+ *   18. 高阶方程求根 O(N^3*logK)
  *  对于方程 a[n]*x^n+a[n-1]*x^n-1+....+a[1]*x+a[0]=0,求出方程的所有实数解
  *  因为利用了递归和vector,时间效率不高,
  */
@@ -1078,7 +1322,53 @@ vector<double> solve(vector<double>coef,int n){
 	return ret;
 }
 
-
+/** 19. 多项式求根(牛顿法)
+ *  c[]多项式系数,n为多项式度数, 求在[a,b]的根
+ *  输出根 (要保证[a,b]有根)
+ */
+double fabs(double x){ return (x<0)? -x:x; }
+double F(int m,double c[],double x){
+	double p=c[m];
+	for(int i=m;i>0;--i)p=p*x+c[i-1];
+	return p;
+}
+int newton(double x0,double *r,double c[],double cp[],int n,double a,double b,double eps){
+	int MAX_ITERATION=1000;
+	int i=1;
+	double x1,x2,fp,eps2=eps/10.0;
+	x1=x0;
+	while(i<MAX_ITERATION){
+		x2=F(n,c,x1);
+		fp=F(n-1,cp,x1);
+		if(fabs(fp)<1e-9 && fabs(x2)>1.0 )return 0;
+		x2=x1-x2/fp;
+		if(fabs(x1-x2)<eps2){
+			if(x2<a || x2>b)return 0;
+			*r=x2;
+			return 1;
+		}
+		x1=x2;
+		++i;
+	}
+	return 0;
+}
+double polynomial_root(double c[],int n,double a,double b,double eps){
+	double *cp;
+	int i;
+	double root;
+	cp=(double*)calloc(n,sizeof(double));
+	for(i=n-1;i>-1;--i)cp[i]=(i+1)*c[i+1];
+	if(a>b){
+		root=a;
+		a=b;
+		b=root;
+	}
+	if((!newton(a,&root,c,cp,n,a,b,eps)) && (!newton(b,&root,c,cp,n,a,b,eps)))
+		newton((a+b)*0.5,&root,c,cp,n,a,b,eps);
+	free(cp);
+	if(fabs(root)<eps)return fabs(root);
+	else return root;
+}
 
 
 
@@ -1123,3 +1413,4 @@ vector<int> initGray(int n){
 		res[i]=(i^(i>>1));
 	return res;
 }
+
