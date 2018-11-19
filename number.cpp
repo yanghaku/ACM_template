@@ -419,7 +419,7 @@ long long q_pow(long long a,long long b,long long p){
 long long q_mul(long long a,long long b,long long p){
 	a%=p;
 	b%=p;
-	ll ans=0;
+	long long ans=0;
 	while(b){
 		if(b&1){
 			ans+=a;
@@ -760,7 +760,6 @@ void mobius()
     }
 }
 
-
 /**
  *  9.组合数取模
  */
@@ -865,7 +864,7 @@ ll solve(long long n,long long m,long long P){
 		}
 	return ans;
 }
-
+	
 /** 10. 矩阵类
  */
 
@@ -904,41 +903,27 @@ struct Matrix{
 // 10.2矩阵的逆 O(n^3)
 // 输入 A原矩阵, C逆矩阵 n矩阵的阶数
 // 当矩阵不是满秩的, 返回0
-// 当算整数取模的时候,只需要改动前两个内联函数和变成乘逆元即可
-inline vector<double>operator*(const vector<double>&a,double b){
-	int n=a.size();
-	vector<double> res(n,0);
-	for(int i=0;i<n;++i)res[i]=a[i]*b;
-	return res;
-}
-inline vector<double>operator-(const vector<double>&a,const vector<double>& b){
-	int n=a.size();
-	vector<double> res(n,0);
-	for(int i=0;i<n;++i)res[i]=a[i]-b[i];
-	return res;
-}
+// 当算整数取模的时候,只需要将除法变为逆元即可
 const double eps=1e-8;
-inline int inverse(vector<double>A[],vector<double>C[],int n){
-	for(int i=0;i<n;++i){
-		C[i]=vector<double>(n,0);
-		C[i][i]=1;
-	}
-	for(int i=0;i<n;++i){
-		for(int j=i;j<n;++j)if(fabs(A[j][i]>eps)){
-			swap(A[i],A[j]);
-			swap(C[i],C[j]);
-			break;
-		}
-		if(fabs(A[i][i])<eps)return 0;//矩阵不是满秩的
-		C[i]=C[i]*(1.0/A[i][i]);
-		A[i]=A[i]*(1.0/A[i][i]);
-		for(int j=0;j<n;++j)
-			if(j!=i&&fabs(A[j][i]>eps)){
-				C[j]=C[j]-C[i]*A[j][i];
-				A[j]=A[j]-A[i]*A[j][i];
-			}
-	}
-	return 1;
+int GaussInverse(double a[][maxn],double c[][maxn],int n){
+    int i,j,k,max_r;
+    for(i=0;i<n;++i)for(j=0;j<n;++j)c[i][j]=(i==j)?1:0;
+    for(k=0;k<n;++k){
+        for(max_r=k,i=k+1;i<n;++i)
+            if(fabs(a[i][k])>fabs(a[max_r][k]))max_r=i;
+        if(fabs(a[max_r][k])<eps)return 0;
+        if(k != max_r)
+            for(j=k;j<n;++j)swap(a[k][j],a[max_r][j]),swap(c[k][j],c[max_r][j]);
+        for(j=k+1;j<n;++j)a[k][j] /= a[k][k];
+        for(j=0;j<n;++j)c[k][j] /= a[k][k];
+        a[k][k]=1;
+        for(i=0;i<n;++i)if(i!=k && fabs(a[i][k])>eps){
+            for(j=0;j<n;++j)c[i][j] -= c[k][j]*a[i][k];
+            for(j=k+1;j<n;++j)a[i][j] -= a[k][j]*a[i][k];
+            a[i][k]=0;
+        }
+    }
+    return 1;
 }
 
 /** 10.3矩阵快速幂加速递推
@@ -1006,35 +991,154 @@ int Gauss(double a[][maxn],bool l[],double ans[],const int& n){
 			ans[i]=a[j][n]/a[j][i];
 	return res;
 }
+
 /** 11.2 列主元高斯消元
  *  求解 a[][]*x[]=b[]
+ *  equ为方程数, var为未知数个数
  *  返回是否有唯一解,若有解就存在b[]中
  */
 const int maxn=100;
-int Gauss(int n,double a[][maxn],double b[]){
-	int i,j,row=0;
-	double maxP,tmp;
-	for(int k=0;k<n;++k){ //枚举每一列
-		for(maxP=0,i=k;i<n;++i){ //对于第k列,往下找最大的一行
-			if(fabs(a[i][k]) > fabs(maxP))maxP=a[row=i][k];
+int Gauss(double a[][maxn],double x[maxn],int equ,int var){
+	int i,j,k,col,max_r;
+	for(k=0,col=0;k<equ&&col<var;++k,++col){
+		max_r=k;
+		for(i=k+1;i<equ;++i)
+			if(fabs(a[i][col])>fabs(a[max_r][col]))max_r=i;
+		if(fabs(a[max_r][col])<eps)return 0;
+		if(k!=max_r){
+			for(j=col;j<var;++j)swap(a[k][j],a[max_r][j]);
+			swap(x[k],x[max_r]);
 		}
-		if(fabs(maxP)<eps)return 0;//如果下面全是0,那么就没有唯一解
-		if(row != k){
-			for(j=k;j<n;++j)swap(a[k][j],a[row][j]);
-			swap(b[k],b[row]);
+		x[k] /= a[k][col];
+		for(j=col+1;j<var;++j)a[k][j] /= a[k][col];
+		a[k][col]=1;
+		for(i=0;i<equ;++i)if(i!=k){
+			x[i] -= x[k]*a[i][col];
+			for(j=col+1;j<var;++j)a[i][j] -= a[k][j]*a[i][col];
+			a[i][col]=0;
 		}
-		for(j=k+1;j<n;++j){ //枚举k行后的每一行
-			a[k][j] /= maxP;
-			for(i=k+1;i<n;++i)a[i][j] -= a[i][k]*a[k][j];
-		}
-		b[k]/=maxP;
-		for(i=n-1;i>-1;--i)
-			for(j=i+1;j<n;++j)b[i] -= a[i][j]*b[j];
 	}
 	return 1;
 }
 
+/** 11.3 全主元高斯消元(一般不常用)
+ *  a[][]*x[]=b[], 结果保存在b[]中
+ */
+const int maxn=100;
+int Gauss(double a[][maxn],double b[],int n){
+	int i,j,k,row=0,col=0,index[maxn];
+	double maxP;
+	for(int i=0;i<n;++i)index[i]=i;
+	for(k=0;k<n;++k){
+		for(maxP=0,i=k;i<n;++i){
+			for(j=k;j<n;++j)
+				if(fabs(a[i][j])>fabs(maxP))maxP=a[row=i][col=j];
+		}
+		if(fabs(maxP)<eps)return 0;
+		if(col != k){
+			for(i=0;i<n;++i)swap(a[i][col],a[i][k]);
+			swap(index[col],index[k]);
+		}
+		if(row != k){
+			for(j=0;j<n;++j)swap(a[k][j],a[row][j]);
+			swap(b[k],b[row]);
+		}
+		for(j=k+1;j<n;++j){
+			a[k][j] /= maxP;
+			for(i=k+1;i<n;++i)a[i][j] -= a[i][k]*a[k][j];
+		}
+		b[k] /= maxP;
+		for(i=k+1;i<n;++i)b[i] -= b[k]*a[i][k];
+	}
+	for(i=n-1;i>-1;--i)
+		for(j=i+1;j<n;++j)b[i] -= a[i][j]*b[j];
+	for(k=0;k<n;++k)a[0][index[k]]=b[k];
+	for(k=0;k<n;++k)b[k]=a[0][k];
+	return 1;
+}
 
+/** 11.4 高斯消元解异或方程组
+ *  返回-1表示无解,0表示唯一解,否则返回自由变元的个数
+ */
+const int maxn=300;
+int equ,var;//equ为方程数,var为未知数个数
+int a[maxn][maxn];  //增光矩阵
+int x[maxn];       //解集
+int free_x[maxn]; //自由变元
+int free_num;    //自由变元个数
+int Gauss(){
+	int max_r,col,k;
+	free_num=0;
+	for(k=0,col=0;k<equ && col<var;++k,++col){
+		max_r=k;
+		for(i=k+1;i<equ;++i)
+			if(abs(a[i][col])>abs(a[max_r][col]))max_r=i;
+		if(a[max_r][col] == 0){
+			--k;
+			free_x[free_num++]=col; //自由变元
+			continue;
+		}
+		if(max_r != k)
+			for(int j=col;j<=var;++j)swap(a[k][j],a[max_r][j]);
+		for(int i=k+1;i<equ;++i){
+			if(a[i][col] != 0)
+				for(int j=col;j<=var;++j)a[i][j] ^= a[k][j];
+		}
+	}
+	for(int i=k;i<equ;++i)
+		if(a[i][col] != 0)return -1;
+	if(k<var){
+		return var-k;
+	}
+	for(int i=var-i;i>-1;--i){//唯一解,回代
+		x[i]=a[i][var];
+		for(int j=i+1;j<var;++j)x[i] ^= (a[i][j]&&x[j]);
+	}
+	return 0;
+}
+
+/** 11.5 高斯消元解同余方程组
+ */
+const int MOD=7;
+const int maxn=400;
+int Gauss(int a[][maxn],int x[],int equ,int var){
+	int max_r,col,k;
+	for(k=0,col=0;k<equ&&col<var;++k,++col){
+		max_r=k;
+		for(int i=k+1;i<equ;++i)
+			if(abs(a[i][col])>abs(a[max_r][col]))max_r=i;
+		if(a[max_r][col] == 0){
+			--k;
+			continue;
+		}
+		if(max_r != k)
+			for(int j=col;j<=var;++j)swap(a[k][j],a[max_r][j]);
+		for(int i=k+1;i<equ;++i){
+			if(a[i][col] != 0){
+				int LCM=lcm(abs(a[i][col]),abs(a[k][col]));
+				int ta=LCM/abs(a[i][col]);
+				int tb=LCM/abs(a[k][col]);
+				if(a[i][col]*a[k][col]<0)tb=-tb;
+				for(int j=col;j<=var;++j)
+					a[i][j]=((a[i][j]*ta-a[k][j]*tb)%MOD+MOD)%MOD;
+			}
+		}
+	}
+	for(int i=k;i<equ;++i)
+		if(a[i][col] != 0)return -1;//无解
+	if(k<var)return var-k;//多解
+	for(int i=var-1;i>=0;--i){
+		int tmp=a[i][var];
+		for(int j=i+1;j<var;++j){
+			if(a[i][j]!=0){
+				tmp -= a[i][j]*x[j];
+				tmp=(tmp%MOD+MOD)%MOD;
+			}
+		}
+		x[i]=(tmp*inv(a[i][i],MOD))%MOD;
+	}
+	return 0;
+}
 
 /** 12.分数类
  *  通过分子,分母进行构造
@@ -1273,9 +1377,115 @@ int main(){
 	return 0;
 }
 
-/** 16 NTT 快速数论变换, 
+/** 16 NTT 快速数论变换
+ * 在模P意义下或者fft精度不够的情况下,可以上NNT
+ * 选取的素数必须是r*2^k+1的形式
+ * 如果模数m不是这个形式,可以选多个素数进行NNT,然后用中国剩余定理合并
+ * 选取素数的标准: p1*p2*p3...*pk >= N*(m-1)^2  (N为要变换的长度,)
+ */
+void change(long long y[],int len){
+	for(int i=1,j=len>>1;i<len-1;++i){
+		if(i<j)swap(y[i],y[j]);
+		int k=len>>1;
+		while(j >= k){
+			j -= k;
+			k /= 2;
+		}
+		if(j<k)j += k;
+	}
+}
+// G表示模数的原根
+void NTT(long long y[],int len,int on,const long long& mod){
+	change(y,len);
+	for(int h=2;h<=len;h<<=1){
+		long long wn=q_pow(G,(mod-1)/h,mod);
+		if(on==-1)wn=q_pow(wn,mod-2,mod);
+		for(int j=0;j<len;j += h){
+			long long w=1;
+			for(int k=j;k<j+(h>>1);++k){
+				long long u=y[k];
+				long long t=w*y[k+(h>>1)]%mod;
+				y[k]=(u+t)%mod;
+				y[k+(h>>1)]=(u-t+mod)%mod;
+				w=w*wn%mod;
+			}
+		}
+	}
+	if(on ==-1){
+		long long t=q_pow(len,mod-2,mod);
+		for(int i=0;i<len;++i)
+			y[i]=y[i]*t%mod;
+	}
+}
+/** 附: 常用的原根素数表 (g是原根)
+r*2^k+1             r k g
+3                   1 1 2
+5                   1 2 2
+17                  1 4 3
+97                  3 5 5
+193                 3 6 5
+257                 1 8 3
+7681                15 9 17
+12289               3 12 11
+40961               5 13 3
+65537               1 16 3
+786433              3 18 10
+5767169             11 19 3
+7340033             7 20 3
+23068673            11 21 3
+104857601           25 22 3
+167772161           5 25 3
+469762049           7 26 3
+998244353			119 23 3
+1004535809          479 21 3
+2013265921          15 27 31
+2281701377          17 27 3
+3221225473          3 30 5
+75161927681         35 31 3
+77309411329         9 33 7
+206158430209        3 36 22
+2061584302081       15 37 7
+2748779069441       5 39 3
+6597069766657       3 41 5
+39582418599937      9 42 5
+79164837199873      9 43 5
+263882790666241     15 44 7
+1231453023109121    35 45 3
+1337006139375617    19 46 3
+3799912185593857    27 47 5
+4222124650659841    15 48 19
+7881299347898369    7 50 6
+31525197391593473   7 52 3
+180143985094819841  5 55 6
+1945555039024054273 27 56 5
+4179340454199820289 29 57 3
+*/
 
-
+/** 17 FWT(快速沃尔什变化) (XOR)
+ * MOD:1e9+7, inv_2: 2关于MOD的逆元, N要为2的整次幂
+ */
+const int MOD=1e9+7;
+const int INV_2=5e8+4;
+inline void FWT(int c[],int N,int tf_utf){//1:tf; 0:utf
+	for(int i=1;i<N;i <<= 1){
+		int tmp=i<<1;
+		for(int j=0;j<N;j += tmp){
+			for(int k=0;k<i;++k){
+				int x=c[j+k],y=c[j+k+i];
+				if(tf_utf){
+					c[j+k]=x+y;
+					if(c[j+k]>=MOD)c[j+k] -= MOD;
+					c[j+k+i]=x-y;
+					if(c[j+k+i]<0)c[j+k+i] += MOD;
+				}
+				else{
+					c[j+k]=(long long)(x+y)*INV_2%MOD;
+					c[j+k+i]=(long long)(x-y+MOD)*INV_2%MOD;
+				}
+			}
+		}
+	}
+}
 
 /** 
  *   18. 高阶方程求根 O(N^3*logK)
@@ -1370,16 +1580,10 @@ double polynomial_root(double c[],int n,double a,double b,double eps){
 	else return root;
 }
 
-
-
-
-
-
-
 /**
- *  19.其他
+ *  20.其他
  */
-// 19.1 进制转换
+// 20.1 进制转换
 // 将x进制的串s转换为y进制的串
 string transform(int x,int y,string s){
 	int len=s.size(),sum=0;
@@ -1405,7 +1609,7 @@ string transform(int x,int y,string s){
 	return res;
 }
 
-// 19.2 格雷码 O(2^n)
+// 20.2 格雷码 O(2^n)
 // 给一个n, 求一个0~2^n-1的排列, 使得相邻两项(包括首尾)的二进制只有一位不同
 vector<int> initGray(int n){
 	vector<int>res;res.resize(1<<n);
