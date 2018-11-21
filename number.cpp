@@ -1581,13 +1581,13 @@ double polynomial_root(double c[],int n,double a,double b,double eps){
 	else return root;
 }
 
-/** 28. 反素数
+/** 20. 反素数
  *  定义: 设n的因子数为f(n), 若任意(1<i<n)都有f(i)<f(n),那么n为反素数
  *  性质: n=p1^t1*p2^t2*p3^t3.....*pk^tk, p1,p2,p3..pk一定是连续的,
  *        并且t1>t2>t3...>tk (保证足够小)
  */
 
-/** 28.1.  求最小的正整数x,使x的因子数为n
+/** 20.1.  求最小的正整数x,使x的因子数为n
  */
 typedef unsigned long long ull;
 const ull INF=~0ULL;
@@ -1605,7 +1605,7 @@ void dfs(int dept,ull tmp,int num,int pre){
 	}
 }
 
-/** 28.2. 求n以内的约数个数最多的正整数(如果不止一个取最小)
+/** 20.2. 求n以内的约数个数最多的正整数(如果不止一个取最小)
  *  	ans_num清零, dfs(0,1,1,63);
  */
 typedef unsigned long long ull;
@@ -1626,6 +1626,217 @@ void dfs(int dept,ull tmp,int num,int pre){
 		if(tmp*prime[dept]>n)break;
 		dfs(dept+1,tmp*=prime[dept],num*(i+1),i);
 	}
+}
+
+/** 21. 整数划分
+ */
+/* 21.1 五边形定理
+ */
+// 划分元素可以重复任意次
+#define f(x) (((x)*(3*(x)-1))>>1)
+#define g(x) (((x)*(3*(x)+1))>>1)
+const int maxn=1e5+10;
+const int mod=1e9+7;
+int ans[maxn];
+void solve(){// ans[i]表示i的划分方案
+	ans[0]=1;
+	for(int i=1;i<maxn;++i){
+		for(int j=1;f(j)<=i;++j){
+			if(j&1)ans[i]=(ans[i]+ans[i-f(j)])%mod;
+			else ans[i]=(ans[i]-ans[i-f(j)]+mod)%mod;
+		}
+		for(int j=1;g(j)<=i;++j){
+			if(j&1)ans[i]=(ans[i]+ans[i-g(j)])%mod;
+			else ans[i]=(ans[i]-ans[i-g(j)]+mod)%mod;
+		}
+	}
+}
+
+/** 21.2. 五边形定理拓展
+ * 问一个数能拆分成多少种情况, 且拆分元素重复次数不能>=k
+ * 初始化之后每次询问调用solve(n,k)即可
+ */
+const int mod=1e9+7;
+const int maxn=1e5+10;
+int ans[maxn];
+void init(){
+	memset(ans,0,sizeof(ans));
+	ans[0]=1;
+	for(int i=1;i<maxn;++i){
+		ans[i]=0;
+		for(int j=1;;++j){
+			int tmp=(3*j-1)*j>>1;
+			if(tmp>i)break;
+			int _tmp=ans[i-tmp];
+			if(tmp+j<=i)_tmp=(_tmp+ans[i-tmp-j])%mod;
+			if(j&1)ans[i]=(ans[i]+_tmp)%mod;
+			else ans[i]=(ans[i]-_tmp+mod)%mod;
+		}
+	}
+}
+int solve(int n,int k){
+	int res=ans[n];
+	for(int i=1;;++i){
+		int tmp=k*i*(3*i-1)>>1;
+		if(tmp>n)break;
+		int _tmp=ans[n-tmp];
+		if(tmp+i*k<=n)_tmp=(_tmp+ans[n-tmp-i*k])%mod;
+		if(i&1)res=(res-_tmp+mod)%mod;
+		else res=(res+_tmp)%mod;
+	}
+	return res;
+}
+
+/** 22. A^B的约数之和
+ *  需要调用素数筛选,合数分解算法,快速幂
+ */
+const int mod=1000000;
+// 计算 1+p+p^2+p^3....+P^n
+long long sum(long long p,long long n){
+	if(p==0)return 0;
+	if(n==0)return 1;
+	if(n&1)
+		return ((1+q_pow(p,n/2+1))%mod*sum(p,n/2))%mod;
+	else
+		return ((1+q_pow(p,n/2+1))%mod*sum(p,n/2-1)+q_pow(p,n/2))%mod;
+}
+// 返回A^B约数之和
+long long solve(long long A,long long B){
+	getFactor(A);
+	long long ans=1;
+	for(int i=0;i<fatCnt;++i){
+		ans*=sum(factor[i][0],B*factor[i][1])%mod;
+		ans%=mod;
+	}
+	return ans;
+}
+
+/** 23. Polya计数
+ *  c种颜色的珠子,组成长为s的项链, 项链没有方向和起始位置
+ */
+long long polya(int c,int s){
+	long long p[64];
+	p[0]=1;
+	for(int k=0;k < s;++k)p[k+1]=p[k]*c;
+	long long count=s&1? s*p[s/2+1] : (s>>1)*(p[s>>1]+p[(s>>1)+1]);
+	for(int k=1;k <= s;++k)count += p[__gcd(k,s)];
+	count /= 2*s;
+	return count;
+}
+
+/** 24. 周期性方程
+ * 定义: 当n==4时
+ * a[1] b[1] c[1] d[1] x[1]
+ * d[2] a[2] b[2] c[2] x[2]
+ * c[3] d[3] a[3] b[3] x[3]
+ * b[4] c[4] d[4] a[4] x[4]
+ * 输入 a[],b[],c[],x[]
+ * 结果保存在x[]中
+ */
+const int maxn=1000;
+int a[maxn],b[maxn],c[maxn],x[maxn];
+void solve(){
+	c[0] /= b[0];
+	a[0] /= b[0];
+	x[0] /= b[0];
+	for(int i=1;i<maxn-1;++i){
+		double tmp=b[i]-a[i]*c[i-1];
+		c[i] /= tmp;
+		x[i]=(x[i]-a[i]*x[i-1])/tmp;
+		a[i]=-a[i]*a[i-1]/tmp;
+	}
+	a[maxn-2]=-a[maxn-2]-c[maxn-2];
+	for(int i=maxn-3;i>=0;--i){
+		a[i]=-a[i]-c[i]*a[i+1];
+		x[i]-=c[i]*x[i+1];
+	}
+	x[maxn-1] -= (c[maxn-1]*x[0]+a[maxn-1]*x[maxn-2]);
+	x[maxn-1] /= (c[maxn-1]*a[0]+a[maxn-1]*a[maxn-2]+b[maxn-1]);
+	for(int i=maxn-2;i>=0;--i)x[i] += a[i]*x[maxn-1];
+}
+
+/** 25. 1/n的小数循环节
+ */
+const int maxn=1005;
+int res[maxn];
+void init(){
+	memset(res,0,sizeof(res));
+	int i,tmp,j,n;
+	for(tmp=1;tmp<=1000;++tmp){
+		i=tmp;
+		while(!(i&1))i >>= 1;
+		while(i%5==0)i /= 5;
+		n=1;
+		for(j=1;j<=i;++j){
+			n*=10;
+			n%=i;
+			if(n==1){
+				res[tmp]=j;
+				break;
+			}
+		}
+	}
+}
+
+/** 26. 最大1矩阵
+ *  O(m*n) 在0,1矩阵里找到最大的一个全1子矩阵
+ *  (坐标从1开始的)
+ */
+const int maxn=1001;
+bool a[maxn][maxn];
+int solve(const int& m,const int& n){// m行n列
+	int i,j,k,l,r,maxx=0;
+	int col[maxn];
+	for(j=1;j<=n;++j){
+		if(a[1][j]==0)col[j]=0;
+		else{
+			for(k=2;k<=m && a[k][j]==1;++k);
+			col[j]=k-1;
+		}
+	}
+	for(i=1;i<=m;++i){
+		if(i>1){
+			for(j=1;j<=n;++j){
+				if(a[i][j]==0)col[j]=0;
+				else{
+					if(a[i-1][j]==0){
+						for(k=i+1;k<=m&&a[k][j]==1;++k);
+						col[j]=k-1;
+					}
+				}
+			}
+		}
+		for(j=1;j<=n;++j){
+			if(col[j]>=i){
+				for(l=j-1;l>0&&col[l]>=col[j];--l);
+				++l;
+				for(r=j+1;r<=n&&col[r]>=col[j];++r);
+				--r;
+				maxx=max( maxx,(r-l+1)*(col[j]-i+1) );
+			}
+		}
+	}
+	return maxx;
+}
+
+/** 27. 母函数(生成函数)
+ */
+const int maxn=1e4+10;
+int c1[maxn],c2[maxn];
+int solve(int n){
+	for(int i=0;i<=n;++i){
+		c1[i]=1;c2[i]=0;
+	}
+	for(int i=2;i<=n;++i){
+		for(int j=0;j<=n;++j){
+			for(int k=0;k+j<=n;k+=i)c2[j+k] += c1[j];
+		}
+		for(int j=0;j<=n;++j){
+			c1[j]=c2[j];
+			c2[j]=0;
+		}
+	}
+	return c1[n];
 }
 
 /**
@@ -1666,3 +1877,21 @@ vector<int> initGray(int n){
 	return res;
 }
 
+/** 28.3. 星期问题(基姆拉尔森公式)
+ * 已知1752年9月3号是星期天, 并且日期控制在1700年2月28日之后
+ * W=(D+2*M+3*(M+1))\5+Y+Y\4-Y\100+Y\400)mod 7
+ */
+int week(int d,int m,int y){
+	int a;
+	if(m==1 || m==2){// 1月2月当做前一年的13,14月
+		m += 12;
+		--y;
+	}
+	if((y<1752)||(y==1752&&m<9)||(y==1752&&m==9&&d<3)){
+		a=(d+2*m+3*(m+1)/5+y+y/4+5)%7;
+	}
+	else{
+		a=(d+2*m+3*(m+1)/5+y+y/4-y/100+y/400)%7;
+	}
+	return a;
+}
