@@ -297,6 +297,7 @@ void phi_and_prime(){
 			notPrime[i*prime[j]]=true;
 			if(i%prime[j]==0){
 				phi[i*prime[j]]=phi[i]*prime[j];
+				break;
 			}
 			else{
 				phi[i*prime[j]]=phi[i]*(prime[j]-1);
@@ -737,19 +738,19 @@ bool notPrime[maxn];
 int cnt, prime[9600], mu[maxn];
 void mobius()
 {
-    memset(vis,0,sizeof(vis));
+    memset(notPrime,0,sizeof(notPrime));
     mu[1]=1;
     cnt=0;
     for(int i=2;i<maxn;++i)
     {
-        if(!vis[i])
+        if(!notPrime[i])
         {
             prime[cnt++]=i;
             mu[i]=-1;
         }
         for(int j=0;j<cnt&&i*prime[j]<maxn;++j)
         {
-            vis[i*prime[j]]=1;
+            notPrime[i*prime[j]]=1;
             if(i%prime[j]==0)
             {
                 mu[i*prime[j]]=0;
@@ -1580,10 +1581,57 @@ double polynomial_root(double c[],int n,double a,double b,double eps){
 	else return root;
 }
 
-/**
- *  20.其他
+/** 28. 反素数
+ *  定义: 设n的因子数为f(n), 若任意(1<i<n)都有f(i)<f(n),那么n为反素数
+ *  性质: n=p1^t1*p2^t2*p3^t3.....*pk^tk, p1,p2,p3..pk一定是连续的,
+ *        并且t1>t2>t3...>tk (保证足够小)
  */
-// 20.1 进制转换
+
+/** 28.1.  求最小的正整数x,使x的因子数为n
+ */
+typedef unsigned long long ull;
+const ull INF=~0ULL;
+const int maxP=16;
+int prime[maxP]={2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53};
+int n;
+ull ans;
+void dfs(int dept,ull tmp,int num,int pre){
+//深度, 当前值, 约数的个数, 上一个值(根据性质,下一个t<=上一个)(一般初值是63左右)
+	if(num>n)return;
+	if(num==n&&ans>tmp)ans=tmp;
+	for(int i=1;i<=pre;++i){
+		if(ans/prime[dept]<tmp)break;
+		dfs(dept+1,tmp*=prime[dept],num*(i+1),i);
+	}
+}
+
+/** 28.2. 求n以内的约数个数最多的正整数(如果不止一个取最小)
+ *  	ans_num清零, dfs(0,1,1,63);
+ */
+typedef unsigned long long ull;
+const ull INF=~0ULL;
+const int maxP=16;
+int prime[maxP]={2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53};
+int ans_num; //最多的约数个数
+ull n,ans;
+void dfs(int dept,ull tmp,int num,int pre){
+	if(tmp>n)return;
+	if(num>ans_num){
+		ans_num=num;
+		ans=tmp;
+	}
+	else if(num==ans_num)
+		ans=min(ans,tmp);
+	for(int i=1;i<=pre;++i){
+		if(tmp*prime[dept]>n)break;
+		dfs(dept+1,tmp*=prime[dept],num*(i+1),i);
+	}
+}
+
+/**
+ *  28.其他
+ */
+// 28.1 进制转换
 // 将x进制的串s转换为y进制的串
 string transform(int x,int y,string s){
 	int len=s.size(),sum=0;
@@ -1609,7 +1657,7 @@ string transform(int x,int y,string s){
 	return res;
 }
 
-// 20.2 格雷码 O(2^n)
+// 28.2 格雷码 O(2^n)
 // 给一个n, 求一个0~2^n-1的排列, 使得相邻两项(包括首尾)的二进制只有一位不同
 vector<int> initGray(int n){
 	vector<int>res;res.resize(1<<n);
